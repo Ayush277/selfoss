@@ -1,4 +1,5 @@
 import React from 'react';
+import { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useOnline } from 'rooks';
@@ -177,7 +178,7 @@ function handleRefreshSource({ event, source, setLoadingState, setNavExpanded, r
     });
 }
 
-export function EntriesPage({ entries, hasMore, loadingState, setLoadingState, selectedEntry, expandedEntries, setNavExpanded, navSourcesExpanded, reload }) {
+export function EntriesPage({ entries, hasMore, loadingState, setLoadingState, selectedEntry, expandedEntries, setNavExpanded, navSourcesExpanded, reload, unreadItemsCount, setTitle }) {
     const allowedToUpdate = useAllowedToUpdate();
     const allowedToWrite = useAllowedToWrite();
     const configuration = React.useContext(ConfigurationContext);
@@ -189,6 +190,18 @@ export function EntriesPage({ entries, hasMore, loadingState, setLoadingState, s
 
         return queryString.get('search') ?? '';
     }, [location.search]);
+
+    useEffect(() => {
+        if (unreadItemsCount > 0) {
+            setTitle(configuration.htmlTitle + ' (' + unreadItemsCount + ')');
+        } else {
+            setTitle(configuration.htmlTitle);
+        }
+
+        return () => {
+            setTitle(null);
+        };
+    }, [configuration.htmlTitle, setTitle, unreadItemsCount]);
 
     const params = useParams();
     const currentTag = params.category?.startsWith('tag-') ? params.category.replace(/^tag-/, '') : null;
@@ -417,6 +430,8 @@ EntriesPage.propTypes = {
     setNavExpanded: PropTypes.func.isRequired,
     navSourcesExpanded: PropTypes.bool.isRequired,
     reload: PropTypes.func.isRequired,
+    setTitle: PropTypes.func.isRequired,
+    unreadItemsCount: PropTypes.number.isRequired,
 };
 
 const initialState = {
@@ -1018,6 +1033,8 @@ export default class StateHolder extends React.Component {
                 setNavExpanded={this.props.setNavExpanded}
                 navSourcesExpanded={this.props.navSourcesExpanded}
                 reload={this.reload}
+                setTitle={this.props.setTitle}
+                unreadItemsCount={this.props.unreadItemsCount}
             />
         );
     }
@@ -1029,4 +1046,6 @@ StateHolder.propTypes = {
     match: PropTypes.object.isRequired,
     setNavExpanded: PropTypes.func.isRequired,
     navSourcesExpanded: PropTypes.bool.isRequired,
+    setTitle: PropTypes.func.isRequired,
+    unreadItemsCount: PropTypes.number.isRequired,
 };

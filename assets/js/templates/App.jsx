@@ -171,14 +171,9 @@ function PureApp({
         []
     );
 
-    const isEntriesRoute = useRouteMatch(ENTRIES_ROUTE_PATTERN) !== null;
-    React.useEffect(() => {
-        if (isEntriesRoute && unreadItemsCount > 0) {
-            document.title = configuration.htmlTitle + ' (' + unreadItemsCount + ')';
-        } else {
-            document.title = configuration.htmlTitle;
-        }
-    }, [configuration, unreadItemsCount, isEntriesRoute]);
+    const setTitle = React.useCallback((title) => {
+        document.title = title ?? configuration.htmlTitle;
+    }, [configuration.htmlTitle]);
 
     const _ = React.useContext(LocalizationContext);
 
@@ -261,6 +256,8 @@ function PureApp({
                                             setNavExpanded={setNavExpanded}
                                             configuration={configuration}
                                             navSourcesExpanded={navSourcesExpanded}
+                                            setTitle={setTitle}
+                                            unreadItemsCount={unreadItemsCount}
                                         />
                                     )}
                                 </Route>
