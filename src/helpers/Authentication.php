@@ -12,91 +12,36 @@ declare(strict_types=1);
 
 namespace helpers;
 
-use Monolog\Logger;
+use helpers\Authentication\AuthenticationService;
 
 /**
  * Helper class for user authentication.
  */
 class Authentication {
-    private bool $loggedin = false;
-
-    private Configuration $configuration;
-    private Logger $logger;
-    private Session $session;
+    private AuthenticationService $authenticationService;
 
     /**
      * start session and check login
      */
-    public function __construct(Configuration $configuration, Logger $logger, Session $session) {
-        $this->configuration = $configuration;
-        $this->logger = $logger;
-        $this->session = $session;
-
-        if ($this->enabled() === false) {
-            return;
-        }
-
-        if ($this->session->getBool('loggedin', false)) {
-            $this->loggedin = true;
-            $this->logger->debug('logged in using valid session');
-        } else {
-            $this->logger->debug('session does not contain valid auth');
-        }
+    public function __construct(AuthenticationService $authenticationService) {
+        $this->authenticationService = $authenticationService;
 
         // autologin if request contains unsername and password
-        if ($this->loggedin === false
-            && isset($_REQUEST['username'])
-            && isset($_REQUEST['password'])) {
-            $this->login($_REQUEST['username'], $_REQUEST['password']);
-        }
+        $this->authenticationService->isPrivileged();
     }
 
     /**
      * login enabled
      */
     public function enabled(): bool {
-        return strlen($this->configuration->username) != 0 && strlen($this->configuration->password) != 0;
-    }
-
-    /**
-     * login user
-     */
-    public function login(string $username, string $password): bool {
-        if ($this->enabled()) {
-            $usernameCorrect = $username === $this->configuration->username;
-            $hashedPassword = $this->configuration->password;
-            // Passwords hashed with password_hash start with $, otherwise use the legacy path.
-            $passwordCorrect =
-                $hashedPassword !== '' && $hashedPassword[0] === '$'
-                ? password_verify($password, $hashedPassword)
-                : hash('sha512', $this->configuration->salt . $password) === $hashedPassword;
-            $credentialsCorrect = $usernameCorrect && $passwordCorrect;
-
-            if ($credentialsCorrect) {
-                $this->loggedin = true;
-                $this->session->setBool('loggedin', true);
-                $this->logger->debug('logged in with supplied username and password');
-
-                return true;
-            } else {
-                $this->logger->debug('failed to log in with supplied username and password');
-
-                return false;
-            }
-        }
-
-        return true;
+        return $this->authenticationService instanceof Authentication\Services\Trust;
     }
 
     /**
      * isloggedin
      */
     public function isLoggedin(): bool {
-        if ($this->enabled() === false) {
-            return true;
-        }
-
-        return $this->loggedin;
+        return $this->authenticationService->isPrivileged();
     }
 
     /**
@@ -107,31 +52,17 @@ class Authentication {
     }
 
     /**
-     * logout
-     */
-    public function logout(): void {
-        $this->loggedin = false;
-        $this->session->setBool('loggedin', false);
-        $this->session->destroy();
-        $this->logger->debug('logged out and destroyed session');
-    }
-
-    /**
      * send 403 if not logged in and not public mode
      */
     public function needsLoggedInOrPublicMode(): void {
-        if ($this->isLoggedin() !== true && !$this->configuration->public) {
-            $this->forbidden();
-        }
+        $this->authenticationService->ensureCanRead();
     }
 
     /**
      * send 403 if not logged in
      */
     public function needsLoggedIn(): void {
-        if ($this->isLoggedin() !== true) {
-            $this->forbidden();
-        }
+        $this->authenticationService->ensureIsPrivileged();
     }
 
     /**
@@ -151,9 +82,6 @@ class Authentication {
      * or public update must be allowed in the config.
      */
     public function allowedToUpdate(): bool {
-        return $this->isLoggedin() === true
-            || $_SERVER['REMOTE_ADDR'] === $_SERVER['SERVER_ADDR']
-            || $_SERVER['REMOTE_ADDR'] === '127.0.0.1'
-            || $this->configuration->allowPublicUpdateAccess;
+        return $this->authenticationService->canUpdate();
     }
 }
