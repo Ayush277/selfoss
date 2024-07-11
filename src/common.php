@@ -65,10 +65,6 @@ $container
     ->register(Bramus\Router\Router::class)
     ->setShared(true)
 ;
-$container
-    ->register(helpers\Authentication::class)
-    ->setShared(true)
-;
 
 $container
     ->register(
